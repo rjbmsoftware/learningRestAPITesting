@@ -2,13 +2,14 @@ package com.learningREST_API_Testing;
 
 import org.junit.Test;
 
+import static io.restassured.RestAssured.given;
 import static io.restassured.RestAssured.when;
 import static org.hamcrest.Matchers.*;
 
 public class ApiChallengeTest {
     private static final String baseURL = "http://localhost:4567";
-    private static final String toDoAPI = "/todos";
-    private static final String toDoIDFormat = baseURL + toDoAPI + "/{id}";
+    private static final String toDoAPI = baseURL + "/todos";
+    private static final String toDoIDFormat = toDoAPI + "/{id}";
 
     @Test
     public void postCreatedSuccessfullyWithoutBody() {
@@ -22,7 +23,7 @@ public class ApiChallengeTest {
 
     @Test
     public void getTodosSuccess() {
-        when().get(baseURL + toDoAPI).then().statusCode(200);
+        when().get(toDoAPI).then().statusCode(200);
     }
 
     @Test
@@ -51,21 +52,27 @@ public class ApiChallengeTest {
 
     @Test
     public void filterNotDoneTodos() {
-        String filteredTodos = baseURL + toDoAPI + "?status=false";
-        when().get(filteredTodos).then().body("todos.doneStatus", everyItem(is(false)));
+        given().when().param("status", "false").get(toDoAPI)
+                .then().body("todos.doneStatus", everyItem(is(false)));
     }
 
     @Test
     public void todoHeadRequestSuccess() {
-        when().head(baseURL + toDoAPI).then()
+        when().head(toDoAPI).then()
                 .statusCode(200);
     }
 
     @Test
     public void optionsRequest() {
-        when().options(baseURL + toDoAPI).then()
+        when().options(toDoAPI).then()
                 .statusCode(200)
                 .header("Allow", "OPTIONS, GET, HEAD, POST");
+    }
+
+    @Test
+    public void createNewTodoSuccess() {
+        String requestBody = "{'title':'hi im new'}";
+        given().body(requestBody).when().post(toDoAPI).then().statusCode(201);
     }
 }
 
