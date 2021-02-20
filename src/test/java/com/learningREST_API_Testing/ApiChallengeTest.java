@@ -3,7 +3,7 @@ package com.learningREST_API_Testing;
 import org.junit.Test;
 import utils.RequestHelper;
 
-import java.io.*;
+import java.io.IOException;
 
 import static io.restassured.RestAssured.given;
 import static io.restassured.RestAssured.when;
@@ -46,12 +46,17 @@ public class ApiChallengeTest {
         when().get(toDoIDFormat, invalidId).then().statusCode(404);
     }
 
-    // need to somehow create a done to do
-//    @Test
-//    public void filterDoneTodos() {
-//        String filteredTodos = baseURL + toDoAPI + "?status=true";
-//        when().get(filteredTodos).then().body("todos", hasSize(0));;
-//    }
+    @Test
+    public void filterTodos() {
+        // Given done and not done exist
+        String requestBodyFormat = "{'title': '%s', 'doneStatus': %b}";
+        given().body(String.format(requestBodyFormat, "notDone", false)).when().post(toDoAPI).then().statusCode(201);
+        given().body(String.format(requestBodyFormat, "done", true)).when().post(toDoAPI).then().statusCode(201);
+
+        given().param("doneStatus", true)
+                .when().get(toDoAPI)
+                .then().body("todos", hasSize(greaterThan(1)));
+    }
 
     @Test
     public void filterNotDoneTodos() {
