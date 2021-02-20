@@ -60,7 +60,7 @@ public class ApiChallengeTest {
 
     @Test
     public void filterNotDoneTodos() {
-        given().when().param("status", "false").get(toDoAPI)
+        given().when().param("doneStatus", "false").get(toDoAPI)
                 .then().body("todos.doneStatus", everyItem(is(false)));
     }
 
