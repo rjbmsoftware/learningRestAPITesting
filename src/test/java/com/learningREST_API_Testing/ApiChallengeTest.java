@@ -7,6 +7,8 @@ import java.io.IOException;
 
 import static io.restassured.RestAssured.given;
 import static io.restassured.RestAssured.when;
+import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchema;
+import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchemaInClasspath;
 import static org.hamcrest.Matchers.*;
 
 public class ApiChallengeTest {
@@ -55,7 +57,7 @@ public class ApiChallengeTest {
 
         given().param("doneStatus", true)
                 .when().get(toDoAPI)
-                .then().body("todos", hasSize(greaterThan(1)));
+                .then().body("todos", hasSize(greaterThanOrEqualTo(1)));
     }
 
     @Test
@@ -101,5 +103,21 @@ public class ApiChallengeTest {
         given().header("Content-Type", "application/json")
                 .when().get(toDoIDFormat, someId)
                 .then().body("todos[0].title", hasToString("newTitle"));
+    }
+
+    @Test
+    public void deleteTodoByID() throws IOException {
+        //given item exists
+        String requestBody = "{'title': 'delete me', 'doneStatus': false}";
+        int id = RequestHelper.getBody(toDoAPI, requestBody).getInt("id");
+
+        given().when().delete(toDoIDFormat, id).then().statusCode(200);
+    }
+
+    @Test
+    public void toDoInJSON() {
+        given().header("accept", "application/json")
+                .when().get(toDoAPI)
+                .then().body(matchesJsonSchemaInClasspath("todoGET.json"));
     }
 }
