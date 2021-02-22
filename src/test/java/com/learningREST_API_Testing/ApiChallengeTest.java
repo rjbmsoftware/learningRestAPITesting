@@ -7,7 +7,7 @@ import java.io.IOException;
 
 import static io.restassured.RestAssured.given;
 import static io.restassured.RestAssured.when;
-import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchema;
+import static io.restassured.matcher.RestAssuredMatchers.matchesXsdInClasspath;
 import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchemaInClasspath;
 import static org.hamcrest.Matchers.*;
 
@@ -116,8 +116,15 @@ public class ApiChallengeTest {
 
     @Test
     public void toDoInJSON() {
-        given().header("accept", "application/json")
+        given().header("Accept", "application/json")
                 .when().get(toDoAPI)
                 .then().body(matchesJsonSchemaInClasspath("todoGET.json"));
+    }
+
+    @Test
+    public void todoInXML() {
+        given().header("Accept", "application/xml")
+                .when().get(toDoAPI)
+                .then().body(matchesXsdInClasspath("todoGET.xml"));
     }
 }
