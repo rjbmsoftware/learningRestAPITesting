@@ -1,9 +1,13 @@
 package com.learningREST_API_Testing;
 
+import io.restassured.http.ContentType;
+import io.restassured.http.Method;
+import org.apache.http.HttpStatus;
 import org.junit.Test;
 import utils.RequestHelper;
 
 import java.io.IOException;
+import java.util.HashMap;
 
 import static io.restassured.RestAssured.given;
 import static io.restassured.RestAssured.when;
@@ -15,6 +19,7 @@ public class ApiChallengeTest {
     private static final String baseURL = "http://localhost:4567";
     private static final String toDoAPI = baseURL + "/todos";
     private static final String toDoIDFormat = toDoAPI + "/{id}";
+    private static final String heartbeatAPI = baseURL + "/heartbeat";
 
     @Test
     public void postCreatedSuccessfullyWithoutBody() {
@@ -28,32 +33,43 @@ public class ApiChallengeTest {
 
     @Test
     public void getTodosSuccess() {
-        when().get(toDoAPI).then().statusCode(200);
+        given().when().get(toDoAPI).then().statusCode(HttpStatus.SC_OK);
+    }
+
+    @Test
+    public void getTodoNoAcceptDefaultJSONResponse() {
+        // todo still makes request with accept header
+        var headerMap = new HashMap<String, String>();
+        given().headers(headerMap).when().get(toDoAPI).then()
+                .statusCode(HttpStatus.SC_OK)
+                .contentType(ContentType.JSON);
     }
 
     @Test
     public void invalidTodosEndpoint() {
-        when().get(baseURL + "/todo").then().statusCode(404);
+        when().get(baseURL + "/todo").then().statusCode(HttpStatus.SC_NOT_FOUND);
     }
 
     @Test
     public void getTodoByIdSuccess() {
         int validId = 1;
-        when().get(toDoIDFormat, validId).then().statusCode(200);
+        when().get(toDoIDFormat, validId).then().statusCode(HttpStatus.SC_OK);
     }
 
     @Test
     public void getTodoByInvalidIDNotFound() {
         int invalidId = 99999;
-        when().get(toDoIDFormat, invalidId).then().statusCode(404);
+        when().get(toDoIDFormat, invalidId).then().statusCode(HttpStatus.SC_NOT_FOUND);
     }
 
     @Test
     public void filterTodos() {
         // Given done and not done exist
         String requestBodyFormat = "{'title': '%s', 'doneStatus': %b}";
-        given().body(String.format(requestBodyFormat, "notDone", false)).when().post(toDoAPI).then().statusCode(201);
-        given().body(String.format(requestBodyFormat, "done", true)).when().post(toDoAPI).then().statusCode(201);
+        given().body(String.format(requestBodyFormat, "notDone", false)).when().post(toDoAPI)
+                .then().statusCode(HttpStatus.SC_CREATED);
+        given().body(String.format(requestBodyFormat, "done", true)).when().post(toDoAPI)
+                .then().statusCode(HttpStatus.SC_CREATED);
 
         given().param("doneStatus", true)
                 .when().get(toDoAPI)
@@ -82,13 +98,13 @@ public class ApiChallengeTest {
     @Test
     public void createNewTodoSuccess() {
         String requestBody = "{'title':'hi im new'}";
-        given().body(requestBody).when().post(toDoAPI).then().statusCode(201);
+        given().body(requestBody).when().post(toDoAPI).then().statusCode(HttpStatus.SC_CREATED);
     }
 
     @Test
     public void createToDoFailsOnDoneStatus() {
         String requestBody = "{'title': 'failsOnStatus', 'doneStatus': 'iShouldBeBool'}";
-        given().body(requestBody).when().post(toDoAPI).then().statusCode(400);
+        given().body(requestBody).when().post(toDoAPI).then().statusCode(HttpStatus.SC_BAD_REQUEST);
     }
 
     @Test
@@ -98,9 +114,9 @@ public class ApiChallengeTest {
         requestBody = "{'title': 'newTitle', 'doneStatus': false}";
         given().body(requestBody)
                 .when().post(toDoIDFormat, someId)
-                .then().statusCode(200);
+                .then().statusCode(HttpStatus.SC_OK);
 
-        given().header("Content-Type", "application/json")
+        given().contentType(ContentType.JSON)
                 .when().get(toDoIDFormat, someId)
                 .then().body("todos[0].title", hasToString("newTitle"));
     }
@@ -111,7 +127,7 @@ public class ApiChallengeTest {
         String requestBody = "{'title': 'delete me', 'doneStatus': false}";
         int id = RequestHelper.getBody(toDoAPI, requestBody).getInt("id");
 
-        given().when().delete(toDoIDFormat, id).then().statusCode(200);
+        given().when().delete(toDoIDFormat, id).then().statusCode(HttpStatus.SC_OK);
     }
 
     @Test
@@ -126,5 +142,41 @@ public class ApiChallengeTest {
         given().header("Accept", "application/xml")
                 .when().get(toDoAPI)
                 .then().body(matchesXsdInClasspath("todoGET.xml"));
+    }
+
+    @Test
+    public void todoInXML_AcceptJSON_AndXML() {
+        given().header("Accept", "application/xml, application/json")
+                .when().get(toDoAPI)
+                .then().contentType(ContentType.XML);
+    }
+
+    @Test
+    public void getTodoUnacceptable() {
+        given().header("Accept", "application/gzip")
+                .when().get(toDoAPI)
+                .then().statusCode(HttpStatus.SC_NOT_ACCEPTABLE);
+    }
+
+    @Test
+    public void deleteOnHeartbeatNotAllowed() {
+        given().when().delete(heartbeatAPI).then().statusCode(HttpStatus.SC_METHOD_NOT_ALLOWED);
+    }
+
+    @Test
+    public void serverErrorPatchHeartbeat() {
+        given().when().patch(heartbeatAPI).then().statusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
+    public void traceNotImplementedOnHeartbeat() {
+        given().when().request(Method.TRACE, heartbeatAPI).then().statusCode(HttpStatus.SC_NOT_IMPLEMENTED);
+    }
+
+    @Test
+    public void getHeartBeatNoContent() {
+        given().when().get(heartbeatAPI).then()
+                .statusCode(HttpStatus.SC_NO_CONTENT)
+                .body(emptyString());
     }
 }
