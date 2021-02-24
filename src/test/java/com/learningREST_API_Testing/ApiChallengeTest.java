@@ -20,6 +20,11 @@ public class ApiChallengeTest {
     private static final String toDoAPI = baseURL + "/todos";
     private static final String toDoIDFormat = toDoAPI + "/{id}";
     private static final String heartbeatAPI = baseURL + "/heartbeat";
+    private static final String secretAPI = baseURL + "/secret";
+    private static final String secretToken = secretAPI + "/token";
+    private static final String secretNote = secretAPI + "/note";
+    private static final String userName = "admin";
+    private static final String password = "password";
 
     @Test
     public void postCreatedSuccessfullyWithoutBody() {
@@ -102,6 +107,40 @@ public class ApiChallengeTest {
     }
 
     @Test
+    public void createNewTodoSuccessXMLWithJSONAccept() {
+        String requestBody = "<todo><title>I am an XML todo</title></todo>";
+        given().body(requestBody).contentType(ContentType.XML)
+                .accept(ContentType.JSON)
+                .when().post(toDoAPI)
+                .then().statusCode(HttpStatus.SC_CREATED);
+    }
+
+    @Test
+    public void createNewTodoSuccessJSONWithXMLAccept() {
+        String requestBody = "{'title':'hi im new'}";
+        given().body(requestBody).contentType(ContentType.JSON)
+                .accept(ContentType.XML)
+                .when().post(toDoAPI)
+                .then().statusCode(HttpStatus.SC_CREATED);
+    }
+
+    @Test
+    public void createNewTodoSuccessXMLAccept() {
+        String requestBody = "<todo><title>I am an XML todo which accepts XML</title></todo>";
+        given().body(requestBody).contentType(ContentType.XML)
+                .accept(ContentType.XML)
+                .when().post(toDoAPI)
+                .then().statusCode(HttpStatus.SC_CREATED);
+    }
+
+    @Test
+    public void unsupportedContentTypePost() {
+        given().contentType(ContentType.BINARY)
+                .when().post(toDoAPI)
+                .then().statusCode(HttpStatus.SC_UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    @Test
     public void createToDoFailsOnDoneStatus() {
         String requestBody = "{'title': 'failsOnStatus', 'doneStatus': 'iShouldBeBool'}";
         given().body(requestBody).when().post(toDoAPI).then().statusCode(HttpStatus.SC_BAD_REQUEST);
@@ -178,5 +217,48 @@ public class ApiChallengeTest {
         given().when().get(heartbeatAPI).then()
                 .statusCode(HttpStatus.SC_NO_CONTENT)
                 .body(emptyString());
+    }
+
+    @Test
+    public void postInvalidSecretToken() {
+        String invalidPassword = password + "123!";
+        given().auth().basic(userName, invalidPassword)
+                .when().post(secretToken)
+                .then().statusCode(HttpStatus.SC_UNAUTHORIZED);
+    }
+
+    @Test
+    public void validLogin() {
+        given().auth().basic(userName, password)
+                .when().post(secretToken)
+                .then().statusCode(HttpStatus.SC_CREATED);
+    }
+
+    @Test
+    public void invalidAuthToken() {
+        given().header("X-AUTH-TOKEN", "IM_AN_INVALID_TOKEN")
+                .when().get(secretNote)
+                .then().statusCode(HttpStatus.SC_FORBIDDEN);
+    }
+
+    @Test
+    public void getSecretNoteUnauthorisedNoHeader() {
+        given().when().get(secretNote).then().statusCode(HttpStatus.SC_UNAUTHORIZED);
+    }
+
+    @Test
+    public void postInvalidSecretNoteForbidden() {
+        String requestBody = "{\"note\":\"my note\"}";
+        given().header("X-AUTH-TOKEN", "IM_AN_INVALID_TOKEN").body(requestBody)
+                .when().post(secretNote)
+                .then().statusCode(HttpStatus.SC_FORBIDDEN);
+    }
+
+    @Test
+    public void postSecretNoteWithoutAuthTokenUnauthorised() {
+        String requestBody = "{\"note\":\"my note\"}";
+        given().body(requestBody)
+                .when().post(secretNote)
+                .then().statusCode(HttpStatus.SC_UNAUTHORIZED);
     }
 }
