@@ -7,7 +7,6 @@ import org.junit.Test;
 import utils.RequestHelper;
 
 import java.io.IOException;
-import java.util.HashMap;
 
 import static io.restassured.RestAssured.given;
 import static io.restassured.RestAssured.when;
@@ -25,15 +24,17 @@ public class ApiChallengeTest {
     private static final String secretNote = secretAPI + "/note";
     private static final String userName = "admin";
     private static final String password = "password";
+    private static final String authTokenName = "X-AUTH-TOKEN";
+    private static final String secretNoteRequestBody = "{\"note\":\"my note\"}";
 
     @Test
     public void postCreatedSuccessfullyWithoutBody() {
-        when().post(baseURL + "/challenger").then().statusCode(201);
+        when().post(baseURL + "/challenger").then().statusCode(HttpStatus.SC_CREATED);
     }
 
     @Test
     public void getChallengesSuccess() {
-        when().get(baseURL + "/challenges").then().statusCode(200);
+        when().get(baseURL + "/challenges").then().statusCode(HttpStatus.SC_OK);
     }
 
     @Test
@@ -41,14 +42,6 @@ public class ApiChallengeTest {
         given().when().get(toDoAPI).then().statusCode(HttpStatus.SC_OK);
     }
 
-    @Test
-    public void getTodoNoAcceptDefaultJSONResponse() {
-        // todo still makes request with accept header
-        var headerMap = new HashMap<String, String>();
-        given().headers(headerMap).when().get(toDoAPI).then()
-                .statusCode(HttpStatus.SC_OK)
-                .contentType(ContentType.JSON);
-    }
 
     @Test
     public void invalidTodosEndpoint() {
@@ -236,7 +229,7 @@ public class ApiChallengeTest {
 
     @Test
     public void invalidAuthToken() {
-        given().header("X-AUTH-TOKEN", "IM_AN_INVALID_TOKEN")
+        given().header(authTokenName, "IM_AN_INVALID_TOKEN")
                 .when().get(secretNote)
                 .then().statusCode(HttpStatus.SC_FORBIDDEN);
     }
@@ -248,17 +241,41 @@ public class ApiChallengeTest {
 
     @Test
     public void postInvalidSecretNoteForbidden() {
-        String requestBody = "{\"note\":\"my note\"}";
-        given().header("X-AUTH-TOKEN", "IM_AN_INVALID_TOKEN").body(requestBody)
+        given().header(authTokenName, "IM_AN_INVALID_TOKEN").body(secretNoteRequestBody)
                 .when().post(secretNote)
                 .then().statusCode(HttpStatus.SC_FORBIDDEN);
     }
 
     @Test
     public void postSecretNoteWithoutAuthTokenUnauthorised() {
-        String requestBody = "{\"note\":\"my note\"}";
-        given().body(requestBody)
+        given().body(secretNoteRequestBody)
                 .when().post(secretNote)
                 .then().statusCode(HttpStatus.SC_UNAUTHORIZED);
+    }
+
+    @Test
+    public void postSecretNoteSuccess() {
+        String authToken = given().auth().basic(userName, password).when().post(secretToken).header(authTokenName);
+
+        given().body(secretNoteRequestBody)
+                .header(authTokenName, authToken)
+                .when().post(secretNote)
+                .then().statusCode(HttpStatus.SC_OK);
+    }
+
+    @Test
+    public void getSecretNoteSuccess() {
+        String authToken = given().auth().basic(userName, password).when().post(secretToken).header(authTokenName);
+
+        given().body(secretNoteRequestBody)
+                .header(authTokenName, authToken)
+                .contentType(ContentType.JSON)
+                .when().post(secretNote)
+                .then().statusCode(HttpStatus.SC_OK);
+
+        given().header(authTokenName, authToken)
+                .when().get(secretNote)
+                .then().statusCode(HttpStatus.SC_OK)
+                .body("note", hasToString("my note"));
     }
 }
