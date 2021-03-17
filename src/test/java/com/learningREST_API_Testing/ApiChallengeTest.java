@@ -33,6 +33,11 @@ public class ApiChallengeTest {
     }
 
     @Test
+    public void postTodoWithoutAcceptHeader() {
+        given().when().accept("").get(toDoAPI).then().statusCode(HttpStatus.SC_OK);
+    }
+
+    @Test
     public void getChallengesSuccess() {
         when().get(baseURL + "/challenges").then().statusCode(HttpStatus.SC_OK);
     }
